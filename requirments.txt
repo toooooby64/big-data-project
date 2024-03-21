@@ -1,5 +1,7 @@
-conda install selenium
-conda install pip
-pip install youtube-transcript-api
-pip install google-api-python-client
-pip install transformers
+#RUN THESE COMMANDS FIRST
+#conda install selenium
+#conda install pip
+
+youtube-transcript-api
+google-api-python-client
+transformers
