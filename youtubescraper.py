@@ -8,9 +8,11 @@ import re
 import time
 import requests
 import json
+import os
+from dotenv import load_dotenv
 
 # Create a new instance of the Chrome driver
-driver = webdriver.Chrome("webdriver\chromedriver.exe")
+driver = webdriver.Chrome("webdriver/chromedriver_mac")
 # Navigate to the YouTube search page
 driver.get("https://www.youtube.com/results?search_query=United+States+Presidential+Election+Joe+Biden&sp=EgYIAhABGAM%253D")
 
@@ -48,38 +50,41 @@ while True:
 # Close the browser
 driver.quit()
 
+load_dotenv()
+DEVELOPER_KEY = os.getenv('GOOGLE_API_KEY')
 
 api_service_name = "youtube"
 api_version = "v3"
-DEVELOPER_KEY = "AIzaSyCJjsICC2y9hImMUcbVVdgYalNP45xvTBM"
-
 youtube = googleapiclient.discovery.build(
     api_service_name, api_version, developerKey = DEVELOPER_KEY)
 
-
-for i in range(1):
+for i in range(len(video_ids)):
     data = {}
     request = youtube.videos().list(
     part="snippet,contentDetails,statistics",
     id=video_ids[i]
     )
     response = request.execute()
-    
     data = {}
-    data['title'] = response.get('items')[0].get('snippet').get('title')
-    data['description'] = response.get('items')[0].get('snippet').get('description')
-    data['publishedAt'] = response.get('items')[0].get('snippet').get('publishedAt')
-    data['viewCount'] = response.get('items')[0].get('statistics').get('viewCount')
-    data['likeCount'] = response.get('items')[0].get('statistics').get('likeCount')
-    data['dislikeCount'] = requests.get(f"https://returnyoutubedislikeapi.com/votes?videoId={id}").json().get('dislikeCount')
-    data['transcript'] = ""
+    items = response.get('items')
+    if items:
+        data['title'] = items[0].get('snippet').get('title')
+        data['description'] = items[0].get('snippet').get('description')
+        data['publishedAt'] = items[0].get('snippet').get('publishedAt')
+        data['viewCount'] = items[0].get('statistics').get('viewCount')
+        data['likeCount'] = items[0].get('statistics').get('likeCount')
+    else:
+        print(f"No items returned for video id {video_ids[i]}")
 
-    transcript = YouTubeTranscriptApi.get_transcript(video_ids[i])
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_ids[i])
+        for j in range(len(transcript)):
+                data['transcript'] += transcript[j].get('text') + " "
+                
+        filename = f"{data['title']}.txt"
+        with open(f"files/unprocessedfiles/{filename}", 'w') as file:
+            json.dump(data, file, indent=4)
+    except Exception as e:
+        print(f"Error retrieving transcript for video id {video_ids[i]}: {str(e)}")
+        continue
 
-    
-    for j in range(len(transcript)):
-            data['transcript'] += transcript[j].get('text') + " "
-            
-    filename = f"{data['title']}.txt"
-    with open(f"files/unprocessedfiles/{filename}", 'w') as file:
-        json.dump(data, file, indent=4)
