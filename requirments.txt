@@ -1,0 +1,5 @@
+conda install selenium
+conda install pip
+pip install youtube-transcript-api
+pip install google-api-python-client
+pip install transformers
