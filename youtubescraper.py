@@ -17,7 +17,7 @@ options = webdriver.ChromeOptions()
 options.add_argument('--headless')
 driver = webdriver.Chrome("webdriver/chromedriver_windows.exe", options=options)
 # Navigate to the YouTube search page
-driver.get("https://www.youtube.com/results?search_query=United+States+Presidential+Election+Joe+Biden&sp=EgYIAhABGAM%253D")
+driver.get("https://www.youtube.com/results?search_query=2024+United+States+Presidential+Election&sp=EgYIAhABGAM%253D")
 
 
 # Wait for the initial search results to load
@@ -25,7 +25,7 @@ wait = WebDriverWait(driver, 10)
 wait.until(EC.presence_of_all_elements_located((By.XPATH, '//a[@id="video-title"]')))
 
 # Extract the video IDs from the URLs
-video_ids = []
+video_ids = set()
 last_height = driver.execute_script("return document.documentElement.scrollHeight")
 while True:
     video_elements = driver.find_elements(By.XPATH, '//a[@id="video-title"]')
@@ -34,7 +34,7 @@ while True:
         match = re.search(r"v=(\w+)", video_url)
         if match:
             video_id = match.group(1)
-            video_ids.append(video_id)
+            video_ids.add(video_id)
 
     # Scroll down to load more videos
     driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
@@ -47,7 +47,7 @@ while True:
     last_height = new_height
 
     # Check if we have enough video IDs
-    if len(video_ids) >= 1:
+    if len(video_ids) >= 500:
         break
 
 # Close the browser
@@ -62,35 +62,47 @@ api_version = "v3"
 youtube = googleapiclient.discovery.build(
     api_service_name, api_version, developerKey = DEVELOPER_KEY)
 
-for i in range(len(video_ids)):
+print(len(video_ids), "videos found")
+
+count = 0
+for id in video_ids:
     data = {}
     request = youtube.videos().list(
     part="snippet,contentDetails,statistics",
-    id=video_ids[i]
+    id=id
     )
-    response = request.execute()
-    data = {}
-    items = response.get('items')
-    if items:
-        data['title'] = items[0].get('snippet').get('title')
-        data['description'] = items[0].get('snippet').get('description')
-        data['publishedAt'] = items[0].get('snippet').get('publishedAt')
-        data['viewCount'] = items[0].get('statistics').get('viewCount')
-        data['likeCount'] = items[0].get('statistics').get('likeCount')
-        data['transcript'] = ""
-    else:
-        print(f"No items returned for video id {video_ids[i]}")
-
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_ids[i])
-        print('Processing transcript for video id:', video_ids[i])
-        for j in range(len(transcript)):
-            data['transcript'] += transcript[j].get('text') + " "
+        response = request.execute()
+        data = {}
+        items = response.get('items')
+        if items:
+            data['title'] = items[0].get('snippet').get('title')
+            data['description'] = items[0].get('snippet').get('description')
+            data['publishedAt'] = items[0].get('snippet').get('publishedAt')
+            data['viewCount'] = items[0].get('statistics').get('viewCount')
+            data['likeCount'] = items[0].get('statistics').get('likeCount')
+            data['transcript'] = ""
+        else:
+            print(f"No items returned for video id {id}")
+            continue
+
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(id)
+            print('Processing transcript for video id:', id)
+            for j in range(len(transcript)):
+                data['transcript'] += transcript[j].get('text') + " "
                 
-        filename = f"{video_ids[i]}.txt"
-        with open(f"files/unprocessedfiles/{filename}", 'w') as file:
-            json.dump(data, file, indent=4)
+            filename = f"{id}.txt"
+            with open(f"files/unprocessedfiles/{filename}", 'w') as file:
+                json.dump(data, file, indent=4)
+                file.close()
+        except Exception as e:
+            print(f"Error retrieving transcript for video id {id}: {str(e)}")
+            continue
+        count += 1
     except Exception as e:
-        print(f"Error retrieving transcript for video id {video_ids[i]}: {str(e)}")
+        print(f"Error retrieving video id {id}: {str(e)}")
         continue
+print(f"{count} / {video_ids} videos processed successfully")
+    
 

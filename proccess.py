@@ -11,10 +11,12 @@ config = AutoConfig.from_pretrained(MODEL)
 sentiment_task = pipeline("sentiment-analysis", model=MODEL, tokenizer=tokenizer)
 
 # Precompile the regular expressions
-biden_pattern = re.compile(r'([\w\W]{400})biden([\w\W]{400})')
+biden_pattern = re.compile(r'([\w\W]{400})joe biden([\w\W]{400})')
 trump_pattern = re.compile(r'([\w\W]{400})trump([\w\W]{400})')
 
 directory = os.fsencode("files/unprocessedfiles")
+biden_scores = {'negative': 0, 'neutral': 0, 'positive': 0}
+trump_scores = {'negative': 0, 'neutral': 0, 'positive': 0}
 
 for file in os.listdir(directory):
     filename = os.fsdecode(file)
@@ -27,13 +29,24 @@ for file in os.listdir(directory):
     trump_mentions = trump_pattern.findall(transcript)
 
 
+    for mention in biden_mentions:
+        mention = ' '.join(mention)
+        scores = sentiment_task(mention)
+        biden_scores[scores[0]['label'].lower()] += scores[0]['score']
 
-    for segment in biden_mentions:
-        segment = ' '.join(segment)
-        scores = sentiment_task(segment)
-        print(f"Joe Biden mention: '{segment}' \nScores: {scores}")
-    for segment in trump_mentions:
-        segment = ' '.join(segment)
-        scores = sentiment_task(segment)
-        print(f"Trump mention: '{segment}' \nScores: {scores}")
-        # Analyze the sentiment of a text
+    for mention in trump_mentions:
+        mention = ' '.join(mention)
+        scores = sentiment_task(mention)
+        trump_scores[scores[0]['label'].lower()] += scores[0]['score']
+
+total = sum(biden_scores.values())
+biden_scores = {k: v / total for k, v in biden_scores.items()}
+
+total = sum(trump_scores.values())
+trump_scores = {k: v / total for k, v in trump_scores.items()}
+
+print("Biden Sentiment Distribution:")
+print(biden_scores)
+
+print("Trump Sentiment Distribution:")
+print(trump_scores)
