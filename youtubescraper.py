@@ -12,7 +12,10 @@ import os
 from dotenv import load_dotenv
 
 # Create a new instance of the Chrome driver
-driver = webdriver.Chrome("webdriver/chromedriver_mac")
+#driver = webdriver.Chrome("webdriver/chromedriver_mac")
+options = webdriver.ChromeOptions()
+options.add_argument('--headless')
+driver = webdriver.Chrome("webdriver/chromedriver_windows.exe", options=options)
 # Navigate to the YouTube search page
 driver.get("https://www.youtube.com/results?search_query=United+States+Presidential+Election+Joe+Biden&sp=EgYIAhABGAM%253D")
 
@@ -52,6 +55,7 @@ driver.quit()
 
 load_dotenv()
 DEVELOPER_KEY = os.getenv('GOOGLE_API_KEY')
+ 
 
 api_service_name = "youtube"
 api_version = "v3"
@@ -73,15 +77,17 @@ for i in range(len(video_ids)):
         data['publishedAt'] = items[0].get('snippet').get('publishedAt')
         data['viewCount'] = items[0].get('statistics').get('viewCount')
         data['likeCount'] = items[0].get('statistics').get('likeCount')
+        data['transcript'] = ""
     else:
         print(f"No items returned for video id {video_ids[i]}")
 
     try:
         transcript = YouTubeTranscriptApi.get_transcript(video_ids[i])
+        print('Processing transcript for video id:', video_ids[i])
         for j in range(len(transcript)):
-                data['transcript'] += transcript[j].get('text') + " "
+            data['transcript'] += transcript[j].get('text') + " "
                 
-        filename = f"{data['title']}.txt"
+        filename = f"{video_ids[i]}.txt"
         with open(f"files/unprocessedfiles/{filename}", 'w') as file:
             json.dump(data, file, indent=4)
     except Exception as e:
