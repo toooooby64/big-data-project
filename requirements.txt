@@ -2,6 +2,7 @@
 #conda install selenium
 #conda install pip
 
+selenium
 youtube-transcript-api
 google-api-python-client
 transformers
