@@ -12,10 +12,10 @@ import os
 from dotenv import load_dotenv
 
 # Create a new instance of the Chrome driver
-#driver = webdriver.Chrome("webdriver/chromedriver_mac")
+driver = webdriver.Chrome("webdriver/chromedriver_mac")
 options = webdriver.ChromeOptions()
 options.add_argument('--headless')
-driver = webdriver.Chrome("webdriver/chromedriver_windows.exe", options=options)
+#driver = webdriver.Chrome("webdriver/chromedriver_windows.exe", options=options)
 # Navigate to the YouTube search page
 driver.get("https://www.youtube.com/results?search_query=2024+United+States+Presidential+Election&sp=EgYIAhABGAM%253D")
 
