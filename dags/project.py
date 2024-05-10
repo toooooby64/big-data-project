@@ -108,7 +108,7 @@ def project():
                     for j in range(len(transcript)):
                         data['transcript'] += transcript[j].get('text') + " "
                     filename = f"{id}.txt"
-                    with open(f"files/unprocessedfiles/{filename}", 'w') as file:
+                    with open(f"/files/unprocessedfiles/{filename}", 'w') as file:
                         json.dump(data, file, indent=4)
                         file.close()
                 except Exception as e:
@@ -132,18 +132,18 @@ def project():
             text=re.sub(pattern,'',text) 
             return text
 
-        directory = os.fsencode("files/unprocessedfiles")
+        directory = os.fsencode("/files/unprocessedfiles")
 
         for file in os.listdir(directory):
             filename = os.fsdecode(file)
-            data = json.load(open(f"files/unprocessedfiles/{filename}"))
+            data = json.load(open(f"/files/unprocessedfiles/{filename}"))
             transcript = data['transcript']
 
             transcript = remove_between_square_brackets(transcript)
             transcript = remove_special_characters(transcript)  
             transcript = transcript.lower()
             data['transcript'] = transcript
-            with open(f"files/processedfiles/{filename}", 'w') as file:
+            with open(f"/files/processedfiles/{filename}", 'w') as file:
                 json.dump(data, file, indent=4)
                 print(f"Cleaned transcript for video id {filename}")
     @task()
@@ -156,17 +156,17 @@ def project():
         sentiment_task = pipeline("sentiment-analysis", model=MODEL, tokenizer=tokenizer)
 
         # Precompile the regular expressions
-        biden_pattern = re.compile(r'([\w\W]{400})joe biden([\w\W]{400})')
+        biden_pattern = re.compile(r'([\w\W]{400})biden([\w\W]{400})')
         trump_pattern = re.compile(r'([\w\W]{400})trump([\w\W]{400})')
 
-        directory = os.fsencode("files/unprocessedfiles")
+        directory = os.fsencode("/files/unprocessedfiles")
         biden_scores = {'negative': 0, 'neutral': 0, 'positive': 0}
         trump_scores = {'negative': 0, 'neutral': 0, 'positive': 0}
 
         for file in os.listdir(directory):
             filename = os.fsdecode(file)
             print(filename)
-            with open(f"files/processedfiles/{filename}") as f:
+            with open(f"/files/processedfiles/{filename}") as f:
                 data = json.load(f)
             title = data['title']
             description = data['description']
@@ -179,23 +179,22 @@ def project():
                 mention = ' '.join(mention)
                 scores = sentiment_task(mention)
                 biden_scores[scores[0]['label'].lower()] += scores[0]['score']
+                total = sum(biden_scores.values())
+            biden_scores = {k: v / total for k, v in biden_scores.items()}
+            data['biden_sentiment'] = biden_scores
 
             for mention in trump_mentions:
                 mention = ' '.join(mention)
                 scores = sentiment_task(mention)
                 trump_scores[scores[0]['label'].lower()] += scores[0]['score']
-
-        total = sum(biden_scores.values())
-        biden_scores = {k: v / total for k, v in biden_scores.items()}
-
-        total = sum(trump_scores.values())
-        trump_scores = {k: v / total for k, v in trump_scores.items()}
-
-        print("Biden Sentiment Distribution:")
-        print(biden_scores)
-
-        print("Trump Sentiment Distribution:")
-        print(trump_scores)
+                data['trump_sentiment'] = scores[0]['label'].lower()
+                total = sum(trump_scores.values())
+            trump_scores = {k: v / total for k, v in trump_scores.items()}
+            data['trump_sentiment'] = trump_scores
+                
+            with open(f"/files/processedfiles/{filename}", 'w') as f:
+                json.dump(data, f, indent=4)
+                print(f"Processed transcript for video id {filename}")
     ids = get_ids()
     get_transcript(ids) >> clean_transcript() >> process_transcript()
 project = project()

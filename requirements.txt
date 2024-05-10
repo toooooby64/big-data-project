@@ -8,3 +8,5 @@ google-api-python-client
 transformers
 python-dotenv
 torch
+moviepy
+speechrecognition

@@ -1,10 +1,8 @@
 # Move the USER root line below the FROM statement
 FROM apache/airflow:2.8.3
-ENV DEVELOPER_KEY=
+ENV DEVELOPER_KEY=AIzaSyDgBK9j_1hmxJkRrSoJJmrP_m9I71T7y5M
 ADD requirements.txt .
 RUN pip install apache-airflow==${AIRFLOW_VERSION} -r requirements.txt
-RUN mkdir -p files/unprocessedfiles/
-RUN mkdir -p files/processedfiles/
 
 USER root
 RUN apt-get update && apt-get install -y wget unzip
