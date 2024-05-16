@@ -16,6 +16,7 @@ import json
 import os
 from dotenv import load_dotenv
 from transformers import pipeline, AutoTokenizer, AutoConfig
+import matplotlib.pyplot as plt
 
 
 @dag(schedule_interval='@daily', start_date=pendulum.datetime(2024, 3, 22))
@@ -195,6 +196,139 @@ def project():
             with open(f"/files/processedfiles/{filename}", 'w') as f:
                 json.dump(data, f, indent=4)
                 print(f"Processed transcript for video id {filename}")
+    @task()
+    def highest_feature():
+        path_of_the_directory = '/files/processedfiles'
+        output_image_path = '/usr/local/airflow/output/highest_feature.png'
+        biden_features = {"positive": 0, "neutral": 0, "negative": 0}
+        trump_features = {"positive": 0, "neutral": 0, "negative": 0}
+
+        for filename in os.listdir(path_of_the_directory):
+            f = os.path.join(path_of_the_directory, filename)
+            if os.path.isfile(f):
+                with open(f, "r") as file:
+                    lines = file.readlines()
+                    for i, line in enumerate(lines):
+                        line = line.strip()
+                        if "biden_sentiment" in line:
+                            current_sentiment = biden_features
+                            values = []
+                            for next_line in lines[i+1:i+4]:
+                                value = float(next_line.split(": ")[1].strip().rstrip(','))
+                                values.append(value)
+                            max_value = max(values)
+                            if max_value == values[0]:
+                                biden_features["positive"] += 1
+                            elif max_value == values[1]:
+                                biden_features["neutral"] += 1
+                            else:
+                                biden_features["negative"] += 1
+                        elif "trump_sentiment" in line:
+                            current_sentiment = trump_features
+                            values = []
+                            for next_line in lines[i+1:i+4]:
+                                value = float(next_line.split(": ")[1].strip().rstrip(','))
+                                values.append(value)
+                            max_value = max(values)
+                            if max_value == values[0]:
+                                trump_features["positive"] += 1
+                            elif max_value == values[1]:
+                                trump_features["neutral"] += 1
+                            else:
+                                trump_features["negative"] += 1
+
+        print("Biden Features:")
+        for feature, value in biden_features.items():
+            print(f"{feature.capitalize()}: {value}")
+
+        print("\nTrump Features:")
+        for feature, value in trump_features.items():
+            print(f"{feature.capitalize()}: {value}")
+
+        categories = list(biden_features.keys())
+        biden_values = list(biden_features.values())
+        trump_values = list(trump_features.values())
+
+        bar_width = 0.35
+        index = range(len(categories))
+
+        fig, ax = plt.subplots()
+        bar1 = ax.bar(index, biden_values, bar_width, label='Biden')
+        bar2 = ax.bar([i + bar_width for i in index], trump_values, bar_width, label='Trump')
+
+        ax.set_xlabel('Sentiment')
+        ax.set_ylabel('Values')
+        ax.set_title('Sentiment Analysis Comparison between Biden and Trump')
+        ax.set_xticks([i + bar_width / 2 for i in index])
+        ax.set_xticklabels(categories)
+        ax.legend()
+
+        plt.savefig(output_image_path)
+        plt.close()
+
+        print(f"Graph saved at: {output_image_path}")
+        
+    @task()
+    def sort_data():
+        path_of_the_directory= '/files/processedfiles'
+        biden_vs_trump = {"biden": 0, "trump": 0}
+        for filename in os.listdir(path_of_the_directory):
+            f = os.path.join(path_of_the_directory,filename)   
+            if os.path.isfile(f):
+                # Open the text file and read its contents
+                with open(f, "r") as file:
+                    lines = file.readlines()
+                    for i, line in enumerate(lines):
+                        line = line.strip()  # Remove leading/trailing whitespace
+                        # Check if the line starts with "biden_sentiment" or "trump_sentiment"
+                        if "viewCount" in line:
+                            views = float((line.split(": ")[1].strip().rstrip(',')).replace('"',''))
+                        elif "likeCount" in line:
+                            likes = float((line.split(": ")[1].strip().rstrip(',')).replace('"',''))
+                        elif "biden_sentiment" in line:
+                            # Read the next three lines and get the float values
+                            next_line = lines[i+1]
+                            value = float(next_line.split(": ")[1].strip().rstrip(','))      
+                            biden_vs_trump["biden"] += value * likes / views * 100
+                        elif "trump_sentiment" in line:
+                            # Read the next three lines and get the float values
+                            next_line = lines[i+1]
+                            value = float(next_line.split(": ")[1].strip().rstrip(','))      
+                            biden_vs_trump["trump"] += value * likes / views * 100
+
+                print("\nBiden vs Trump:")
+                for feature, value in biden_vs_trump.items():
+                    print(f"{feature.capitalize()}: {value}")
+
+                # Extracting the keys (categories) and values for both Biden and Trump
+                categories = list(biden_vs_trump.keys())
+                values = list(biden_vs_trump.values())
+                # Setting the positions and width for the bars
+                bar_width = 0.35
+                index = range(len(categories))
+
+                # Creating the bar graph
+                fig, ax = plt.subplots()
+                bar1 = ax.bar(0, values[0], bar_width, label='Biden')
+                bar2 = ax.bar(1, values[1], bar_width, label='Trump')
+
+                # Adding labels, title, and legend
+                ax.set_xlabel('Canidate')
+                ax.set_ylabel('Values')
+                ax.set_title('Vid Rating * Num Likes / Views * 100')
+                ax.set_xticks([i + bar_width / 2 for i in index])
+                ax.set_xticklabels(categories)
+                ax.legend()
+
+                # Save the bar graph to a file
+                output_image_path = '/usr/local/airflow/output/sort_data.png'
+                plt.savefig(output_image_path)
+                plt.close()
+
+                print(f"Graph saved at: {output_image_path}")
+
+
+
     ids = get_ids()
-    get_transcript(ids) >> clean_transcript() >> process_transcript()
+    get_transcript(ids) >> clean_transcript() >> process_transcript() >> highest_feature() >> sort_data()
 project = project()

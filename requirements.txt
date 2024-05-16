@@ -10,3 +10,4 @@ python-dotenv
 torch
 moviepy
 speechrecognition
+matplotlib
